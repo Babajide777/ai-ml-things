@@ -17,6 +17,8 @@ Some projects pull data from [Kaggle](https://www.kaggle.com/) via `kagglehub`. 
 | Project | File | Topics |
 | --- | --- | --- |
 | [Mall Customer Segmentation](#mall-customer-segmentation) | `mall_customer_segmentation.py` | K-Means, elbow method, feature scaling |
+| [Iris KNN](#iris-knn) | `iris_knn.py` | KNN, train/test split, StandardScaler |
+| [Iris Pipeline + CV](#iris-pipeline--cv) | `iris_pipeline.py` | Pipeline, cross-validation, KNN |
 
 ---
 
@@ -35,6 +37,42 @@ Clusters mall shoppers by **annual income** and **spending score** using K-Means
 
 ```bash
 python mall_customer_segmentation.py
+```
+
+---
+
+### Iris KNN
+
+Classifies Iris flowers with K-Nearest Neighbors, comparing odd values of `k`.
+
+**What it does**
+1. Loads the built-in Iris dataset
+2. Stratified train/test split
+3. Standardizes features (fit on train, transform test)
+4. Trains KNN for `k = 1, 3, 5, 7, 9` and prints test accuracy
+
+**Run**
+
+```bash
+python iris_knn.py
+```
+
+---
+
+### Iris Pipeline + CV
+
+Same Iris + KNN setup, but scaling and the classifier are wrapped in a `Pipeline`, evaluated with 5-fold cross-validation.
+
+**What it does**
+1. Loads the Iris dataset
+2. Builds a `Pipeline(StandardScaler → KNeighborsClassifier)` for each odd `k`
+3. Runs `cross_val_score(..., cv=5)` so the scaler is fit only on each fold’s training data
+4. Prints mean and standard deviation of the five fold scores
+
+**Run**
+
+```bash
+python iris_pipeline.py
 ```
 
 ---
