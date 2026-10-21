@@ -1,4 +1,3 @@
-import numpy as np
 import pandas as pd
 from sklearn.datasets import fetch_california_housing
 from sklearn.model_selection import train_test_split
@@ -6,10 +5,11 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LinearRegression
 from sklearn.dummy import DummyRegressor
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from sklearn.metrics import mean_absolute_error, root_mean_squared_error, r2_score
 
 RANDOM_SEED = 42
 TEST_SIZE = 0.2
+TARGET_UNIT_USD = 100_000  # California target is median house value in $100,000s
 
 
 def load_data():
@@ -35,11 +35,20 @@ def make_model():
 
 
 def regression_metrics(y_true, y_pred):
+    """Errors reported in US dollars; R2 is unitless."""
     return {
-        "MAE": mean_absolute_error(y_true, y_pred),
-        "RMSE": np.sqrt(mean_squared_error(y_true, y_pred)),
+        "MAE ($)": mean_absolute_error(y_true, y_pred) * TARGET_UNIT_USD,
+        "RMSE ($)": root_mean_squared_error(y_true, y_pred) * TARGET_UNIT_USD,
         "R2": r2_score(y_true, y_pred),
     }
+
+
+def format_results(results):
+    formatted = results.copy().astype(object)
+    for col in ["MAE ($)", "RMSE ($)"]:
+        formatted[col] = results[col].map(lambda v: f"${v:,.0f}")
+    formatted["R2"] = results["R2"].map(lambda v: f"{v:.4f}")
+    return formatted
 
 
 def main():
@@ -56,8 +65,8 @@ def main():
         "DummyRegressor (mean)": regression_metrics(y_test, baseline.predict(X_test)),
         "LinearRegression (scaled)": regression_metrics(y_test, model.predict(X_test)),
     }).T
-    print("Test-set metrics")
-    print(results.round(4).to_string())
+    print("Test-set metrics (errors in US dollars)")
+    print(format_results(results).to_string())
 
     print()
     print("LinearRegression train vs test R2")
