@@ -170,6 +170,18 @@ def pick_best_by_cv_mae(cv_table):
     return within.iloc[0]
 
 
+def largest_abs_errors(model, X_test, y_test, n=10):
+    """Top-n absolute errors with distance, true fare, prediction, and abs error."""
+    pred = model.predict(X_test)
+    err = pd.DataFrame({
+        "distance": X_test["distance"].to_numpy(),
+        "fare": y_test.to_numpy(),
+        "pred": pred,
+        "abs_err": abs(pred - y_test.to_numpy()),
+    })
+    return err.nlargest(n, "abs_err").reset_index(drop=True)
+
+
 def main():
     df = preprocess_data(load_data())
     X, y = split_xy(df)
@@ -224,15 +236,36 @@ def main():
     hgb_row = cv_table[cv_table["model"].str.startswith("HistGradientBoosting")].iloc[0]
 
     # --- Final fit on full train; test metrics once ---
+    fitted = {}
     test_rows = {}
     for name, model in models.items():
         model.fit(X_train, y_train)
+        fitted[name] = model
         test_rows[name] = regression_metrics(
             y_test, model.predict(X_test), target_unit_usd=1.0
         )
     test_table = pd.DataFrame(test_rows).T
     print("\nTest-set metrics (already in US dollars)")
     print(format_results(test_table).to_string())
+
+    # --- Investigation: worst absolute errors ---
+    linear_name = "LinearRegression"
+    hgb_name = "HistGradientBoosting"
+    linear_worst = largest_abs_errors(fitted[linear_name], X_test, y_test)
+    hgb_worst = largest_abs_errors(fitted[hgb_name], X_test, y_test)
+    side_by_side = pd.concat(
+        {
+            "LinearRegression": linear_worst[["distance", "fare", "pred", "abs_err"]],
+            "HistGradientBoosting": hgb_worst[["distance", "fare", "pred", "abs_err"]],
+        },
+        axis=1,
+    )
+    print("\nInvestigation: 10 largest |errors| on test (distance, fare, pred, abs_err)")
+    print(side_by_side.round(2).to_string())
+    print(
+        f"\nTrain distance max: {X_train['distance'].max():.2f} mi; "
+        f"test distance max: {X_test['distance'].max():.2f} mi"
+    )
 
     print("\n--- Answers ---")
     print(
@@ -254,6 +287,12 @@ def main():
         "tip/tolls/total excluded because they are known only after the ride "
         "(or are derived from fare); using them would leak future information "
         "into a fare prediction made at trip start."
+    )
+    print(
+        "Tree models get very long rides badly wrong: a leaf predicts the average "
+        "fare of training rides that fell in that bin, so an ultra-long trip is "
+        "stuck with the (much shorter) longest-bin average and cannot extrapolate. "
+        "A linear model keeps increasing fare with distance past the training max."
     )
 
 
